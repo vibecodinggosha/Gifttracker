@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gift Tracker</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    :root{--bg:var(--tg-theme-bg-color,#0f0f1a);--text:var(--tg-theme-text-color,#e8e8f0);--hint:var(--tg-theme-hint-color,#6b6b80);--link:var(--tg-theme-link-color,#5eabf7);--btn:var(--tg-theme-button-color,#5eabf7);--btn-text:var(--tg-theme-button-text-color,#fff);--sec-bg:var(--tg-theme-secondary-bg-color,#1a1a2e);--gold:#f0c040;--green:#4caf50;--red:#f44336}
+    body{font-family:'Nunito',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:70px}
+
+    /* NAV */
+    .nav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--sec-bg);border-top:1px solid rgba(255,255,255,.06);display:flex;padding:6px 0 env(safe-area-inset-bottom,6px)}
+    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--hint);font-size:10px;font-weight:700;font-family:inherit;padding:6px 0;cursor:pointer;position:relative}
+    .nav-btn.active{color:var(--btn)}
+    .nav-btn svg{width:22px;height:22px;fill:currentColor}
+    .nav-badge{position:absolute;top:1px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 4px}
+
+    /* PAGES */
+    .page{display:none;padding:12px 16px 20px}.page.active{display:block}
+    .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-top:4px}
+    .hdr h1{font-size:20px;font-weight:800}
+    .pill{background:rgba(76,175,80,.12);color:var(--green);padding:4px 10px;border-radius:16px;font-size:10px;font-weight:700;display:flex;align-items:center;gap:4px}
+    .pill .dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:bl 1.8s ease-in-out infinite}
+    @keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}
+
+    /* ACCOUNT GRID */
+    .acc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:12px}
+    .acc-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;padding:12px 4px;border-radius:14px;background:var(--sec-bg);transition:transform .15s}
+    .acc-item:active{transform:scale(.95)}
+    .acc-av{width:52px;height:52px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;position:relative}
+    .acc-av img{width:100%;height:100%;object-fit:cover}
+    .acc-av .letter{position:absolute;font-size:22px;font-weight:800}
+    .acc-name{font-size:11px;font-weight:700;color:var(--text);text-align:center;max-width:85px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .acc-count{font-size:9px;color:var(--hint);font-weight:600}
+
+    /* SEARCH */
+    .row{display:flex;gap:8px;margin-bottom:14px}
+    .inp{flex:1;background:var(--sec-bg);border:2px solid transparent;border-radius:12px;padding:11px 14px;font-size:14px;font-family:inherit;font-weight:600;color:var(--text);outline:none}.inp::placeholder{color:var(--hint)}.inp:focus{border-color:var(--btn)}
+    .btn-add{background:var(--btn);color:var(--btn-text);border:none;border-radius:12px;width:46px;font-size:22px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}.btn-add:active{transform:scale(.9)}
+
+    /* OVERLAY */
+    .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:150;transform:translateX(100%);transition:transform .3s ease;overflow-y:auto;padding:16px 16px 80px}
+    .overlay.open{transform:translateX(0)}
+    .ov-hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px;position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:10}
+    .back{width:36px;height:36px;border-radius:10px;background:var(--sec-bg);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+    .back svg{width:20px;height:20px;fill:var(--text)}
+    .ov-user{flex:1;min-width:0}
+    .ov-user .nm{font-size:17px;font-weight:800}
+    .ov-user .sb{font-size:12px;color:var(--hint)}
+    .ov-av{width:44px;height:44px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0}
+    .ov-av img{width:100%;height:100%;object-fit:cover}
+    .del-btn{background:rgba(244,67,54,.1);border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .del-btn svg{width:18px;height:18px;fill:var(--red)}
+
+    /* TRANSFER CARD */
+    .t-card{background:var(--sec-bg);border-radius:14px;padding:12px;margin-bottom:8px;border-left:3px solid rgba(255,255,255,.06)}
+    .t-card.tracked{border-left-color:var(--gold)}
+    .t-top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+    .t-ico{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;overflow:hidden}
+    .t-ico img{width:100%;height:100%;object-fit:cover}
+    .t-inf{flex:1;min-width:0}
+    .t-ttl{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .t-sub{font-size:10px;color:var(--hint)}
+    .t-flow{display:flex;align-items:center;gap:5px;font-size:12px;margin-bottom:4px}
+    .t-flow .n{color:var(--link);font-weight:600;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .t-flow .me{color:var(--green);font-weight:800}
+    .t-flow .ar{color:var(--hint);font-size:10px}
+    .t-time{font-size:10px;color:var(--hint)}
+    .t-tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(240,192,64,.12);color:var(--gold)}
+    .empty{text-align:center;padding:40px 20px;color:var(--hint);font-size:13px}
+    .toast{position:fixed;top:-60px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:10px 22px;border-radius:22px;font-size:13px;font-weight:700;z-index:300;box-shadow:0 4px 24px rgba(0,0,0,.4);transition:top .4s cubic-bezier(.34,1.56,.64,1);max-width:94%;text-align:center}.toast.show{top:14px}.toast.err{background:var(--red)}
+    .c0{background:linear-gradient(135deg,#f06292,#e91e63)}.c1{background:linear-gradient(135deg,#42a5f5,#1e88e5)}.c2{background:linear-gradient(135deg,#66bb6a,#43a047)}.c3{background:linear-gradient(135deg,#ffa726,#fb8c00)}.c4{background:linear-gradient(135deg,#ab47bc,#8e24aa)}.c5{background:linear-gradient(135deg,#26c6da,#00acc1)}.c6{background:linear-gradient(135deg,#ef5350,#e53935)}.c7{background:linear-gradient(135deg,#5c6bc0,#3949ab)}
+    .spinner{width:20px;height:20px;border:2px solid var(--sec-bg);border-top-color:var(--btn);border-radius:50%;animation:sp .6s linear infinite;margin:20px auto}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    @keyframes popIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+    .acc-item{animation:popIn .3s ease-out both}
+  </style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+
+<!-- TAB: SEARCH (first) -->
+<div class="page active" id="pageSearch">
+  <div class="hdr"><h1>🔍 Поиск</h1></div>
+  <div class="row">
+    <input class="inp" id="inpUser" placeholder="@username" autocomplete="off" spellcheck="false">
+    <button class="btn-add" id="addBtn" onclick="addAcc()">+</button>
+  </div>
+  <div style="font-size:11px;color:var(--hint);margin-bottom:12px">Введите юзернейм из Telegram для отслеживания передач подарков</div>
+  <div class="lbl">Отслеживаемые подарки · <span id="gc">13</span></div>
+  <div id="gList" style="margin-bottom:12px"></div>
+</div>
+
+<!-- TAB: TRACKED (second) -->
+<div class="page" id="pageTracked">
+  <div class="hdr">
+    <h1>👁 Отслеживаемые</h1>
+    <div class="pill"><div class="dot"></div>Live</div>
+  </div>
+  <div id="accGrid"></div>
+</div>
+
+<!-- TAB: PROFILE -->
+<div class="page" id="pageProfile">
+  <div class="hdr"><h1>👤 Профиль</h1></div>
+  <div style="display:flex;flex-direction:column;align-items:center;padding:20px 0 24px">
+    <div id="profAv" style="width:80px;height:80px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;color:#fff;margin-bottom:12px"></div>
+    <div id="profName" style="font-size:18px;font-weight:800;margin-bottom:4px"></div>
+    <div id="profUser" style="font-size:14px;color:var(--link);font-weight:600;margin-bottom:4px"></div>
+    <div id="profId" style="font-size:12px;color:var(--hint)"></div>
+  </div>
+  <div style="background:var(--sec-bg);border-radius:14px;padding:16px;margin-bottom:20px;text-align:center">
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px">📊 Отслеживаемые аккаунты</div>
+    <div id="profAccCount" style="font-size:28px;font-weight:800;color:var(--link)">0</div>
+  </div>
+  <div style="text-align:center;padding:20px 0;border-top:1px solid rgba(255,255,255,.06)">
+    <div style="font-size:13px;color:var(--hint);margin-bottom:8px">Спасибо <span style="color:var(--text);font-weight:700">See.tg</span> за API</div>
+    <div style="display:flex;justify-content:center;gap:16px">
+      <a href="https://t.me/seetg" target="_blank" style="color:var(--link);font-size:12px;font-weight:700;text-decoration:none">📢 @seetg</a>
+      <a href="https://t.me/seetgbot" target="_blank" style="color:var(--link);font-size:12px;font-weight:700;text-decoration:none">🤖 @seetgbot</a>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY: ACCOUNT DETAIL -->
+<div class="overlay" id="overlay">
+  <div class="ov-hdr">
+    <button class="back" onclick="closeOv()"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+    <div class="ov-av" id="ovAv"></div>
+    <div class="ov-user"><div class="nm" id="ovName"></div><div class="sb" id="ovSub"></div></div>
+    <button class="del-btn" onclick="removeFromOv()"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+  </div>
+  <div id="ovFeed"></div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <button class="nav-btn active" onclick="switchTab('pageSearch',this)">
+    <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+    Поиск
+  </button>
+  <button class="nav-btn" onclick="switchTab('pageTracked',this)">
+    <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+    Отслеживаемые
+    <span class="nav-badge" id="newBadge"></span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('pageProfile',this);renderProfile()">
+    <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+    Профиль
+  </button>
+</nav>
+
+<script>
+const tg=window.Telegram?.WebApp;
+if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('secondary_bg_color')}catch(e){}}
+
+const PROXY='/api/proxy';
+const GIFTS={
+  '5782984811920491178':'B-day Candle',
+  '6028426950047957932':'Lunar Snake',
+  '5983484377902875708':'Ginger Cookie',
+  '5983259145522906006':'Winter Wreath',
+  '5980789805615678057':'Snow Mittens',
+  '5933590374185435592':'Jester Hat',
+  '5913442287462908725':'Spiced Wine',
+  '5915502858152706668':'Jelly Bunny',
+  '5825801628657124140':'Hex Pot',
+  '5825480571261813595':'Evil Eye',
+  '5170594532177215681':'Lol Pop',
+  '5783075783622787539':'Homemade Cake',
+  '5167939598143193218':'Sakura Flower'
+};
+const GIFT_IDS=new Set(Object.keys(GIFTS));
+
+let accs=JSON.parse(localStorage.getItem('gt21')||'[]');
+let historyCache=[];
+let accTransfers={};
+let curOv=null;
+let unseenCount=0;
+let lastSeenId=localStorage.getItem('gt21_last')||'';
+
+function save(){localStorage.setItem('gt21',JSON.stringify(accs))}
+function cc(u){return'c'+((u||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0)%8)}
+function avUrl(u){return'https://poso.see.tg/api/avatar/'+encodeURIComponent(u)}
+
+function toast(m,e){const t=document.getElementById('toast');t.textContent=m;t.className='toast'+(e?' err':'')+' show';setTimeout(()=>t.classList.remove('show'),4e3)}
+
+// API
+async function api(path,params={}){
+  const u=new URLSearchParams({path,...params});
+  const r=await fetch(PROXY+'?'+u);
+  const txt=await r.text();
+  let d;try{d=JSON.parse(txt)}catch(e){d=txt}
+  if(!r.ok)throw new Error(r.status);
+  return d;
+}
+
+// Tabs
+function switchTab(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(id==='pageTracked'){unseenCount=0;updBadge();renderAccGrid()}
+}
+function updBadge(){const b=document.getElementById('newBadge');if(unseenCount>0){b.textContent=unseenCount;b.style.display='flex'}else b.style.display='none'}
+
+// Users
+function users(){return new Set(accs.map(a=>a.username.toLowerCase()))}
+
+// Add with validation
+async function addAcc(){
+  const inp=document.getElementById('inpUser');
+  const btn=document.getElementById('addBtn');
+  let u=inp.value.trim().replace(/^@/,'');
+  if(!u||u.length<2)return toast('Введите username',true);
+  if(accs.find(a=>a.username.toLowerCase()===u.toLowerCase()))return toast('Пользователь уже добавлен',true);
+  
+  btn.textContent='⏳';btn.disabled=true;
+  try{
+    // Verify user exists in see.tg
+    const data=await api('owner',{username:u});
+    const ownerId=data.id||data.owner_id||'';
+    const ownerUsername=data.username||u;
+    
+    // Check if same person already added (by ID or primary username)
+    if(ownerId && accs.find(a=>a.ownerId===ownerId)){
+      toast('Пользователь уже добавлен (другой юзернейм)',true);
+      return;
+    }
+    if(accs.find(a=>a.username.toLowerCase()===ownerUsername.toLowerCase())){
+      toast('Пользователь уже добавлен',true);
+      return;
+    }
+    
+    accs.push({username:ownerUsername, name:data.name||ownerUsername, ownerId:ownerId});
+    inp.value='';save();renderAccGrid();
+    toast('✅ @'+ownerUsername+' добавлен');
+    await loadAll();
+  }catch(e){
+    toast('Пользователя не существует',true);
+  }finally{
+    btn.textContent='+';btn.disabled=false;
+  }
+}
+document.getElementById('inpUser').addEventListener('keydown',e=>{if(e.key==='Enter')addAcc()});
+
+function removeAcc(u){accs=accs.filter(a=>a.username!==u);save();renderAccGrid();delete accTransfers[u.toLowerCase()]}
+function removeFromOv(){if(curOv){removeAcc(curOv);closeOv()}}
+
+// Load history
+async function loadAll(){
+  const allItems=[];
+  for(let page=0;page<5;page++){
+    try{
+      const d=await api('history',{limit:'10',offset:String(page*10)});
+      const items=d.history||d.items||(Array.isArray(d)?d:[]);
+      if(!items.length)break;
+      allItems.push(...items);
+    }catch(e){break}
+  }
+  
+  historyCache=allItems;
+  
+  // Build per-account transfers
+  const u=users();
+  accTransfers={};
+  accs.forEach(a=>accTransfers[a.username.toLowerCase()]=[]);
+  
+  allItems.forEach(item=>{
+    const owner=(item.owner||{}).username||'';
+    const prev=(item.prev_owner||{}).username||'';
+    if(u.has(owner.toLowerCase())){
+      accTransfers[owner.toLowerCase()].push(item);
+    }
+    if(u.has(prev.toLowerCase())&&prev.toLowerCase()!==owner.toLowerCase()){
+      accTransfers[prev.toLowerCase()].push(item);
+    }
+  });
+  
+  renderAccGrid();
+  if(curOv)renderOvFeed(curOv);
+}
+
+// Poll
+async function poll(){
+  try{
+    const d=await api('history',{limit:'10'});
+    const items=d.history||d.items||(Array.isArray(d)?d:[]);
+    if(!items.length)return;
+    
+    const u=users();
+    const existIds=new Set(historyCache.map(i=>(i.gift||{}).id));
+    
+    let newCount=0;
+    items.forEach(item=>{
+      const gid=(item.gift||{}).id;
+      if(gid&&!existIds.has(gid)){
+        historyCache.unshift(item);
+        existIds.add(gid);
+        
+        const owner=(item.owner||{}).username||'';
+        const prev=(item.prev_owner||{}).username||'';
+        const ownerMatch=u.has(owner.toLowerCase());
+        const prevMatch=u.has(prev.toLowerCase());
+        
+        if(ownerMatch||prevMatch){
+          newCount++;
+          if(ownerMatch){
+            if(!accTransfers[owner.toLowerCase()])accTransfers[owner.toLowerCase()]=[];
+            accTransfers[owner.toLowerCase()].unshift(item);
+          }
+          if(prevMatch&&prev.toLowerCase()!==owner.toLowerCase()){
+            if(!accTransfers[prev.toLowerCase()])accTransfers[prev.toLowerCase()]=[];
+            accTransfers[prev.toLowerCase()].unshift(item);
+          }
+          
+          // Notification
+          const gift=item.gift||{};
+          const isTracked=GIFT_IDS.has(String(gift.gift_id||''));
+          toast((isTracked?'⭐ ':'🎁 ')+gift.title+' #'+(gift.num||'')+'\n'+(prev?'@'+prev:'?')+' → @'+owner);
+          try{tg?.HapticFeedback?.notificationOccurred('success')}catch(e){}
+        }
+      }
+    });
+    
+    if(newCount>0){
+      if(!document.getElementById('pageTracked').classList.contains('active')){
+        unseenCount+=newCount;updBadge();
+      }
+      renderAccGrid();
+      if(curOv)renderOvFeed(curOv);
+    }
+  }catch(e){}
+}
+
+// Time format
+function fT(d){
+  if(!d)return'';
+  const m=Math.floor((Date.now()-new Date(d))/6e4);
+  if(m<1)return'сейчас';if(m<60)return m+'м';
+  if(m<1440)return(m/60|0)+'ч';
+  return new Date(d).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+}
+
+// Render account grid
+function renderAccGrid(){
+  const el=document.getElementById('accGrid');
+  if(!accs.length){
+    el.innerHTML='<div class="empty">👆 Перейдите во вкладку «Поиск»<br>чтобы добавить аккаунты</div>';
+    return;
+  }
+  el.innerHTML='<div class="acc-grid">'+accs.map((a,i)=>{
+    const count=(accTransfers[a.username.toLowerCase()]||[]).length;
+    return '<div class="acc-item" style="animation-delay:'+(i*.06)+'s" onclick="openOv(\''+a.username+'\')">'+
+      '<div class="acc-av '+cc(a.username)+'">'+
+        '<img src="'+avUrl(a.username)+'" style="width:100%;height:100%;object-fit:cover">'+
+      '</div>'+
+      '<div class="acc-name">@'+a.username+'</div>'+
+      (count?'<div class="acc-count">'+count+' передач</div>':'')+
+    '</div>';
+  }).join('')+'</div>';
+}
+
+// Overlay
+function openOv(username){
+  curOv=username;
+  document.getElementById('ovName').textContent='@'+username;
+  document.getElementById('ovSub').textContent='История передач';
+  document.getElementById('ovAv').innerHTML=
+    '<img src="'+avUrl(username)+'" style="width:100%;height:100%;object-fit:cover">';
+  document.getElementById('ovAv').className='ov-av '+cc(username);
+  renderOvFeed(username);
+  document.getElementById('overlay').classList.add('open');
+}
+function closeOv(){curOv=null;document.getElementById('overlay').classList.remove('open')}
+
+function renderOvFeed(username){
+  const el=document.getElementById('ovFeed');
+  const items=accTransfers[username.toLowerCase()]||[];
+  const u=users();
+  
+  if(!items.length){
+    el.innerHTML='<div class="empty">Нет передач.<br>Данные обновляются каждые 15 сек.</div>';
+    return;
+  }
+  
+  el.innerHTML=items.map(item=>{
+    const gift=item.gift||{};
+    const owner=item.owner||{};
+    const prev=item.prev_owner||{};
+    const isTracked=GIFT_IDS.has(String(gift.gift_id||''));
+    const oUser=owner.username||'';
+    const pUser=prev.username||'';
+    const oMe=u.has(oUser.toLowerCase());
+    const pMe=u.has(pUser.toLowerCase());
+    const giftUrl=gift.url||'';
+    
+    const gid=gift.gift_id||gift.id||'';
+    const gBase='https://cdn.changes.tg/gifts/originals/'+gid+'/';
+    
+    return '<div class="t-card'+(isTracked?' tracked':'')+'"'+
+      (giftUrl?' onclick="window.open(\''+giftUrl+'\',\'_blank\')" style="cursor:pointer"':'')+'>'+
+      '<div class="t-top">'+
+        '<div class="t-ico"><img src="'+gBase+'Original.png" onerror="this.parentElement.textContent=\'🎁\'"></div>'+
+        '<div class="t-inf">'+
+          '<div class="t-ttl">'+(isTracked?'⭐ ':'')+gift.title+' #'+(gift.num||'')+'</div>'+
+          '<div class="t-sub">'+(gift.model_name||'')+' · '+(gift.pattern_name||'')+'</div>'+
+        '</div>'+
+        (isTracked?'<span class="t-tag">🎯</span>':'')+
+      '</div>'+
+      '<div class="t-flow">'+
+        '<span class="'+(pMe?'me':'n')+'">'+(pUser?'@'+pUser:(prev.name||'?'))+'</span>'+
+        '<span class="ar">→</span>'+
+        '<span class="'+(oMe?'me':'n')+'">'+(oUser?'@'+oUser:(owner.name||'?'))+'</span>'+
+      '</div>'+
+      '<div class="t-time">'+fT(item.seen_at)+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+// Gift names display
+function renderGifts(){
+  document.getElementById('gc').textContent=GIFT_IDS.size;
+  document.getElementById('gList').innerHTML=Object.entries(GIFTS).map(([id,name])=>
+    '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--sec-bg);border-radius:8px;padding:4px 10px 4px 4px;margin:3px;font-size:11px;font-weight:600;color:var(--text)">'+
+    '<img src="https://cdn.changes.tg/gifts/originals/'+id+'/Original.png" style="width:22px;height:22px;border-radius:4px" onerror="this.style.display=\'none\'">'+
+    name+'</span>'
+  ).join('');
+}
+
+// Profile
+function renderProfile(){
+  const user=tg?.initDataUnsafe?.user;
+  const profAv=document.getElementById('profAv');
+  profAv.className=cc(user?.username||'user');
+  profAv.innerHTML=user?.photo_url?'<img src="'+user.photo_url+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">':'<span style="font-size:34px;font-weight:800">'+(user?.first_name||'?')[0].toUpperCase()+'</span>';
+  
+  document.getElementById('profName').textContent=(user?.first_name||'')+(user?.last_name?' '+user.last_name:'');
+  document.getElementById('profUser').textContent=user?.username?'@'+user.username:'';
+  document.getElementById('profId').textContent='ID: '+(user?.id||'—');
+  
+  document.getElementById('profAccCount').textContent=accs.length;
+}
+
+// Init
+renderAccGrid();
+renderGifts();
+
+(async()=>{
+  try{
+    await api('history',{limit:'1'});
+    await loadAll();
+  }catch(e){
+    document.getElementById('accGrid').innerHTML='<div class="empty" style="color:var(--red)">❌ API недоступен</div>';
+  }
+  
+  // Poll every 15 seconds
+  setInterval(poll,15000);
+})();
+</script>
+</body>
+</html>
