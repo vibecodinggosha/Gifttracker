@@ -1,4 +1,4 @@
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
   try {
     let { path, ...params } = req.query;
 
-    // FIX: если path массив
+    // фикс массива
     if (Array.isArray(path)) {
       path = path.join('/');
     }
@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Missing path parameter' });
     }
 
-    // 🔔 Telegram notify
+    // 🔔 notify
     if (path === 'notify') {
       if (!BOT_TOKEN) {
         return res.status(500).json({ error: 'BOT_TOKEN not configured' });
@@ -38,31 +38,23 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Missing chat_id or text' });
       }
 
-      const botRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id,
-          text,
-          parse_mode: 'HTML'
-        })
+        body: JSON.stringify({ chat_id, text, parse_mode: 'HTML' })
       });
 
-      const data = await botRes.text();
-
-      return res.status(botRes.status).send(data);
+      return res.status(tgRes.status).send(await tgRes.text());
     }
 
-    // 🌐 Proxy запрос
+    // 🌐 proxy
     const url = new URL(`${API_BASE}/${path.replace(/^\/+/, '')}`);
 
     if (TGAUTH) url.searchParams.set('tgauth', TGAUTH);
     if (APP_TOKEN) url.searchParams.set('app_token', APP_TOKEN);
 
     Object.entries(params).forEach(([k, v]) => {
-      if (k !== 'path') {
-        url.searchParams.set(k, v);
-      }
+      if (k !== 'path') url.searchParams.set(k, v);
     });
 
     const options = {
@@ -72,23 +64,23 @@ module.exports = async function handler(req, res) {
       }
     };
 
-    if (req.method === 'POST' && req.body) {
+    // безопасный body
+    if (req.method === 'POST') {
       options.headers['Content-Type'] = 'application/json';
-      options.body = JSON.stringify(req.body);
+      options.body = JSON.stringify(req.body || {});
     }
 
-    const response = await fetch(url.toString());
+    // ✅ ВАЖНО: передаём options
+    const response = await fetch(url.toString(), options);
 
     const text = await response.text();
 
-    // FIX: не форсим JSON
-    res.status(response.status);
-    res.send(text);
+    return res.status(response.status).send(text);
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      error: err.message || 'Internal Server Error'
+    console.error('ERROR:', err);
+    return res.status(500).json({
+      error: err.message
     });
   }
-};
+}
