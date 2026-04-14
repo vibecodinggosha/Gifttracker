@@ -1,70 +1,55 @@
+const EC2 = 'http://16.171.238.233:3000';
+ 
 module.exports = async function handler(req, res) {
-  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
  
-  const API_BASE = 'https://poso.see.tg/api';
-  
-  // Auth credentials
-  const TGAUTH = process.env.TGAUTH || '{"id":7905043240,"first_name":".","username":"kdsjaklals","auth_date":1775821124,"hash":"849f8db7d207d6abafb82c61536bb7c0cbe4f5373d9d58ebfa8111c6fd3f481a"}';
-  const APP_TOKEN = process.env.APP_TOKEN || '7f79ebca-ebc5-48b6-b39b-f5b5fa05d6d5:4b8c3876718f8f0aae26028bb35c2ee36c746e950d05c0bd4c1fb8e42c13f234';
-  const BOT_TOKEN = process.env.BOT_TOKEN || '8313071168:AAF4OeWMR-O_tYS8qWrRUGl1-j2x0Cz4Ips';
- 
   try {
-    const { path, ...params } = req.query;
-    if (!path) return res.status(400).json({ error: 'Missing path parameter' });
+    const p = req.query.path || '';
  
-    // Special path: send bot notification
-    if (path === 'notify') {
-      if (!BOT_TOKEN) return res.status(500).json({ error: 'BOT_TOKEN not configured' });
-      const { chat_id, text } = params;
-      if (!chat_id || !text) return res.status(400).json({ error: 'Missing chat_id or text' });
-      
-      const botUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-      const botRes = await fetch(botUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chat_id,
-          text: text,
-          parse_mode: 'HTML'
-        })
-      });
-      const botData = await botRes.text();
-      res.status(botRes.status);
-      res.setHeader('Content-Type', 'application/json');
-      return res.send(botData);
+    // Route to EC2 for account/transfer management
+    if (p === '_accounts') {
+      const r = await fetch(EC2 + '/accounts');
+      return res.status(r.status).send(await r.text());
     }
  
-    // Normal see.tg API proxy
-    const url = new URL(API_BASE + '/' + path.replace(/^\//, ''));
-    url.searchParams.set('tgauth', TGAUTH);
-    url.searchParams.set('app_token', APP_TOKEN);
-    
-    Object.entries(params).forEach(([k, v]) => {
-      if (k !== 'path') url.searchParams.set(k, v);
-    });
- 
-    const opts = {
-      method: req.method,
-      headers: { 'Accept': 'application/json' }
-    };
-    
-    if (req.method === 'POST' && req.body) {
-      opts.headers['Content-Type'] = 'application/json';
-      opts.body = JSON.stringify(req.body);
+    if (p === '_accounts_add') {
+      const u = req.query.username || '';
+      const r = await fetch(EC2 + '/accounts?username=' + encodeURIComponent(u), { method: 'POST' });
+      return res.status(r.status).send(await r.text());
     }
  
-    const response = await fetch(url.toString(), opts);
-    const data = await response.text();
+    if (p === '_accounts_delete') {
+      const u = req.query.username || '';
+      const r = await fetch(EC2 + '/accounts?username=' + encodeURIComponent(u), { method: 'DELETE' });
+      return res.status(r.status).send(await r.text());
+    }
  
-    res.status(response.status);
+    if (p === '_transfers') {
+      const u = req.query.username || '';
+      const url = u ? EC2 + '/transfers?username=' + encodeURIComponent(u) : EC2 + '/transfers';
+      const r = await fetch(url);
+      return res.status(r.status).send(await r.text());
+    }
+ 
+    if (p === '_status') {
+      const r = await fetch(EC2 + '/status');
+      return res.status(r.status).send(await r.text());
+    }
+ 
+    // Everything else → forward to EC2's see.tg proxy
+    if (!p) return res.status(400).json({ error: 'Missing path' });
+ 
+    const params = new URLSearchParams(req.query);
+    const r = await fetch(EC2 + '/api/proxy?' + params.toString());
+    const data = await r.text();
+    res.status(r.status);
     res.setHeader('Content-Type', 'application/json');
     res.send(data);
-    
+ 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(502).json({ error: 'Server unavailable: ' + error.message });
   }
 }
