@@ -174,7 +174,16 @@ const server = http.createServer(async (req, res) => {
         transfers[un.toLowerCase()] = [];
         saveAll();
         return json({ ok: true, username: un, name: d.name || un, ownerId: oid });
-      } catch (e) { return json({ error: 'not_found' }); }
+      } catch (e) {
+        console.error(`[add @${u}] seeApi error: ${e.message}`);
+        // If API returned 404 — user genuinely doesn't exist
+        if (e.message === 'API 404') return json({ error: 'not_found' });
+        // Auth expired or API down — add user anyway without see.tg validation
+        accounts.push({ username: u, ownerId: '', name: u });
+        transfers[u.toLowerCase()] = [];
+        saveAll();
+        return json({ ok: true, username: u, name: u, ownerId: '' });
+      }
     }
 
     if (p === '/accounts' && req.method === 'DELETE') {
