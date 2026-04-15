@@ -165,6 +165,8 @@ const server = http.createServer(async (req, res) => {
     if (p === '/accounts' && req.method === 'POST') {
       const u = (url.searchParams.get('username') || '').replace(/^@/, '');
       if (!u) return json({ error: 'no username' });
+      // Validate Telegram username format: 5-32 chars, a-z 0-9 underscore
+      if (!/^[a-zA-Z0-9_]{5,32}$/.test(u)) return json({ error: 'not_found' });
       if (accounts.find(a => a.username.toLowerCase() === u.toLowerCase())) return json({ error: 'already_exists' });
       try {
         const d = await seeApi('owner', { username: u });
@@ -176,9 +178,9 @@ const server = http.createServer(async (req, res) => {
         return json({ ok: true, username: un, name: d.name || un, ownerId: oid });
       } catch (e) {
         console.error(`[add @${u}] seeApi error: ${e.message}`);
-        // If API returned 404 — user genuinely doesn't exist
+        // User genuinely doesn't exist on see.tg
         if (e.message === 'API 404') return json({ error: 'not_found' });
-        // Auth expired or API down — add user anyway without see.tg validation
+        // Auth expired or API down — add user with format-validated username
         accounts.push({ username: u, ownerId: '', name: u });
         transfers[u.toLowerCase()] = [];
         saveAll();
