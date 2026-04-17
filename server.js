@@ -4,7 +4,7 @@ const path = require('path');
 
 // ===== CONFIG =====
 const API_BASE = 'https://poso.see.tg/api';
-const TGAUTH = '{"id":7905043240,"first_name":".","username":"kdsjaklals","auth_date":1775821124,"hash":"849f8db7d207d6abafb82c61536bb7c0cbe4f5373d9d58ebfa8111c6fd3f481a"}';
+const TGAUTH = '{"id":7905043240,"first_name":".","username":"kdsjaklals","auth_date":1775820871,"hash":"087a1dd3ab8af979f89d7fa3f0a8d9f3df90d429463c473568ff822644176139"}';
 const APP_TOKEN = '7f79ebca-ebc5-48b6-b39b-f5b5fa05d6d5:4b8c3876718f8f0aae26028bb35c2ee36c746e950d05c0bd4c1fb8e42c13f234';
 const BOT_TOKEN = '8313071168:AAF4OeWMR-O_tYS8qWrRUGl1-j2x0Cz4Ips';
 
@@ -165,6 +165,8 @@ const server = http.createServer(async (req, res) => {
     if (p === '/accounts' && req.method === 'POST') {
       const u = (url.searchParams.get('username') || '').replace(/^@/, '');
       if (!u) return json({ error: 'no username' });
+      // Validate Telegram username format: 5-32 chars, a-z 0-9 underscore
+      if (!/^[a-zA-Z0-9_]{5,32}$/.test(u)) return json({ error: 'not_found' });
       if (accounts.find(a => a.username.toLowerCase() === u.toLowerCase())) return json({ error: 'already_exists' });
       try {
         const d = await seeApi('owner', { username: u });
@@ -176,9 +178,9 @@ const server = http.createServer(async (req, res) => {
         return json({ ok: true, username: un, name: d.name || un, ownerId: oid });
       } catch (e) {
         console.error(`[add @${u}] seeApi error: ${e.message}`);
-        // If API returned 404 — user genuinely doesn't exist
+        // User genuinely doesn't exist on see.tg
         if (e.message === 'API 404') return json({ error: 'not_found' });
-        // Auth expired or API down — add user anyway without see.tg validation
+        // Auth expired or API down — add user with format-validated username
         accounts.push({ username: u, ownerId: '', name: u });
         transfers[u.toLowerCase()] = [];
         saveAll();
