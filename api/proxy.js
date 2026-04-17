@@ -1,55 +1,53 @@
-const EC2 = 'http://16.171.238.233:3000';
- 
+var EC2 = 'http://16.171.238.233:3000';
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
- 
+
   try {
-    const p = req.query.path || '';
- 
-    // Route to EC2 for account/transfer management
+    var p = req.query.path || '';
+
     if (p === '_accounts') {
-      const r = await fetch(EC2 + '/accounts');
+      var r = await fetch(EC2 + '/accounts');
       return res.status(r.status).send(await r.text());
     }
- 
+
     if (p === '_accounts_add') {
-      const u = req.query.username || '';
-      const r = await fetch(EC2 + '/accounts?username=' + encodeURIComponent(u), { method: 'POST' });
-      return res.status(r.status).send(await r.text());
+      var u = req.query.username || '';
+      var r2 = await fetch(EC2 + '/accounts?username=' + encodeURIComponent(u), { method: 'POST' });
+      return res.status(r2.status).send(await r2.text());
     }
- 
+
     if (p === '_accounts_delete') {
-      const u = req.query.username || '';
-      const r = await fetch(EC2 + '/accounts?username=' + encodeURIComponent(u), { method: 'DELETE' });
-      return res.status(r.status).send(await r.text());
+      var u2 = req.query.username || '';
+      var r3 = await fetch(EC2 + '/accounts?username=' + encodeURIComponent(u2), { method: 'DELETE' });
+      return res.status(r3.status).send(await r3.text());
     }
- 
+
     if (p === '_transfers') {
-      const u = req.query.username || '';
-      const url = u ? EC2 + '/transfers?username=' + encodeURIComponent(u) : EC2 + '/transfers';
-      const r = await fetch(url);
-      return res.status(r.status).send(await r.text());
+      var u3 = req.query.username || '';
+      var tUrl = u3 ? EC2 + '/transfers?username=' + encodeURIComponent(u3) : EC2 + '/transfers';
+      var r4 = await fetch(tUrl);
+      return res.status(r4.status).send(await r4.text());
     }
- 
+
     if (p === '_status') {
-      const r = await fetch(EC2 + '/status');
-      return res.status(r.status).send(await r.text());
+      var r5 = await fetch(EC2 + '/status');
+      return res.status(r5.status).send(await r5.text());
     }
- 
-    // Everything else → forward to EC2's see.tg proxy
+
     if (!p) return res.status(400).json({ error: 'Missing path' });
- 
-    const params = new URLSearchParams(req.query);
-    const r = await fetch(EC2 + '/api/proxy?' + params.toString());
-    const data = await r.text();
-    res.status(r.status);
+
+    var params = new URLSearchParams(req.query);
+    var r6 = await fetch(EC2 + '/api/proxy?' + params.toString());
+    var data = await r6.text();
+    res.status(r6.status);
     res.setHeader('Content-Type', 'application/json');
     res.send(data);
- 
+
   } catch (error) {
     res.status(502).json({ error: 'Server unavailable: ' + error.message });
   }
-}
+};
