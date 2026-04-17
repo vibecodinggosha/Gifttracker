@@ -181,7 +181,10 @@
 
 <script>
 const tg=window.Telegram?.WebApp;
-if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('secondary_bg_color')}catch(e){}}
+if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('secondary_bg_color')}catch(e){}
+  // Auto-refresh server auth token on every app open
+  if(tg.initData){fetch('/api/proxy?path=_refresh_auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:tg.initData})}).catch(()=>{});}
+}
 
 // ⚠️ ЗАМЕНИТЕ на IP вашего EC2 сервера!
 const PROXY='/api/proxy';

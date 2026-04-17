@@ -4,7 +4,7 @@ const path = require('path');
 
 // ===== CONFIG =====
 const API_BASE = 'https://poso.see.tg/api';
-const TGAUTH = '{"id":7905043240,"first_name":".","username":"kdsjaklals","auth_date":1775820871,"hash":"087a1dd3ab8af979f89d7fa3f0a8d9f3df90d429463c473568ff822644176139"}';
+let TGAUTH = '{"id":7905043240,"first_name":".","username":"kdsjaklals","auth_date":1775820871,"hash":"087a1dd3ab8af979f89d7fa3f0a8d9f3df90d429463c473568ff822644176139"}';
 const APP_TOKEN = '7f79ebca-ebc5-48b6-b39b-f5b5fa05d6d5:4b8c3876718f8f0aae26028bb35c2ee36c746e950d05c0bd4c1fb8e42c13f234';
 const BOT_TOKEN = '8313071168:AAF4OeWMR-O_tYS8qWrRUGl1-j2x0Cz4Ips';
 
@@ -194,6 +194,25 @@ const server = http.createServer(async (req, res) => {
       delete transfers[u.toLowerCase()];
       saveAll();
       return json({ ok: true });
+    }
+
+    // Auto-refresh TGAUTH from Mini App initData
+    if (p === '/refresh-auth' && req.method === 'POST') {
+      let body = '';
+      req.on('data', d => body += d);
+      req.on('end', () => {
+        try {
+          const { initData } = JSON.parse(body);
+          if (initData && initData.includes('auth_date')) {
+            const parsed = Object.fromEntries(new URLSearchParams(initData));
+            const authObj = { id: Number(parsed.user ? JSON.parse(parsed.user).id : 0), first_name: parsed.user ? JSON.parse(parsed.user).first_name : '.', username: parsed.user ? JSON.parse(parsed.user).username : '', auth_date: Number(parsed.auth_date), hash: parsed.hash };
+            TGAUTH = JSON.stringify(authObj);
+            console.log(`[auth] refreshed, auth_date=${parsed.auth_date}`);
+          }
+        } catch(e) { console.error('[auth] refresh error:', e.message); }
+        json({ ok: true });
+      });
+      return;
     }
 
     if (p === '/transfers') {

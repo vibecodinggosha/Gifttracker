@@ -38,6 +38,12 @@ module.exports = async function handler(req, res) {
       const r = await fetch(EC2 + '/status');
       return res.status(r.status).send(await r.text());
     }
+
+    if (p === '_refresh_auth') {
+      const body = await new Promise(resolve => { let b=''; req.on('data',d=>b+=d); req.on('end',()=>resolve(b)); });
+      const r = await fetch(EC2 + '/refresh-auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+      return res.status(r.status).send(await r.text());
+    }
  
     // Everything else → forward to EC2's see.tg proxy
     if (!p) return res.status(400).json({ error: 'Missing path' });
