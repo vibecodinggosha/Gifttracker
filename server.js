@@ -1,14 +1,14 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-
+ 
 const API_BASE = 'https://poso.see.tg/api';
-const TGAUTH = '{"id":7905043240,"first_name":".","username":"kdsjaklals","auth_date":1775821124,"hash":"849f8db7d207d6abafb82c61536bb7c0cbe4f5373d9d58ebfa8111c6fd3f481a"}';
+const TGAUTH = '{"id":1692238953,"first_name":"Fortugosh","username":"plushfloppa","auth_date":1776592369,"hash":"fe0c6556c2efaf34414974e0b517ddab6149d988da541d434c0e536966386dcb"}';
 const APP_TOKEN = '7f79ebca-ebc5-48b6-b39b-f5b5fa05d6d5:4b8c3876718f8f0aae26028bb35c2ee36c746e950d05c0bd4c1fb8e42c13f234';
 const BOT_TOKEN = '8313071168:AAF4OeWMR-O_tYS8qWrRUGl1-j2x0Cz4Ips';
 const PORT = 3000;
 const POLL_INTERVAL = 5000;
-
+ 
 const GIFTS = {
   '5782984811920491178': 'B-day Candle',
   '6028426950047957932': 'Lunar Snake',
@@ -25,29 +25,29 @@ const GIFTS = {
   '5167939598143193218': 'Sakura Flower'
 };
 const GIFT_IDS = new Set(Object.keys(GIFTS));
-
+ 
 const DATA_DIR = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-
+ 
 function loadJSON(f, d) {
   try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return d; }
 }
 function saveJSON(f, d) {
   try { fs.writeFileSync(f, JSON.stringify(d)); } catch (e) { }
 }
-
+ 
 let accounts = loadJSON(path.join(DATA_DIR, 'accounts.json'), []);
 let seenIds = new Set(loadJSON(path.join(DATA_DIR, 'seen_ids.json'), []));
 let transfers = loadJSON(path.join(DATA_DIR, 'transfers.json'), {});
 let notifyUsers = loadJSON(path.join(DATA_DIR, 'notify_users.json'), []);
-
+ 
 function saveAll() {
   saveJSON(path.join(DATA_DIR, 'accounts.json'), accounts);
   saveJSON(path.join(DATA_DIR, 'seen_ids.json'), [...seenIds]);
   saveJSON(path.join(DATA_DIR, 'transfers.json'), transfers);
   saveJSON(path.join(DATA_DIR, 'notify_users.json'), notifyUsers);
 }
-
+ 
 async function seeApi(endpoint, params) {
   if (!params) params = {};
   var url = new URL(API_BASE + '/' + endpoint);
@@ -61,7 +61,7 @@ async function seeApi(endpoint, params) {
   if (!res.ok) throw new Error('API ' + res.status);
   return res.json();
 }
-
+ 
 async function sendBot(chatId, text) {
   try {
     await fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage', {
@@ -71,13 +71,13 @@ async function sendBot(chatId, text) {
     });
   } catch (e) { }
 }
-
+ 
 async function notifyAll(text) {
   for (var i = 0; i < notifyUsers.length; i++) {
     await sendBot(notifyUsers[i], text);
   }
 }
-
+ 
 var lastUpdateId = 0;
 async function checkBot() {
   try {
@@ -98,43 +98,43 @@ async function checkBot() {
     }
   } catch (e) { }
 }
-
+ 
 var pollCount = 0;
-
+ 
 async function poll() {
   pollCount++;
   var unames = accounts.map(function(a) { return a.username.toLowerCase(); });
   if (unames.length === 0) return;
-
+ 
   var n = 0;
   var totalChecked = 0;
   var foundOld = false;
-
+ 
   for (var page = 0; page < 50 && !foundOld; page++) {
     try {
       var data = await seeApi('history', { limit: '10', offset: String(page * 10) });
       var items = data.history || [];
       if (items.length === 0) break;
       totalChecked += items.length;
-
+ 
       var allSeen = true;
       for (var i = 0; i < items.length; i++) {
         var item = items[i];
         var gift = item.gift || {};
         var gid = gift.id;
         var giftId = String(gift.gift_id || '');
-
+ 
         if (!gid) continue;
         if (seenIds.has(gid)) continue;
-
+ 
         allSeen = false;
         seenIds.add(gid);
-
+ 
         if (!GIFT_IDS.has(giftId)) continue;
-
+ 
         var owner = ((item.owner || {}).username || '').toLowerCase();
         var prev = (item.prev_owner || {}).username || '';
-
+ 
         if (unames.indexOf(owner) !== -1) {
           n++;
           if (!transfers[owner]) transfers[owner] = [];
@@ -146,38 +146,38 @@ async function poll() {
           await notifyAll(msg);
         }
       }
-
+ 
       if (allSeen) foundOld = true;
     } catch (e) {
       console.log('Poll error: ' + e.message);
       break;
     }
   }
-
+ 
   if (n > 0) saveAll();
   if (pollCount % 10 === 0) saveAll();
   if (pollCount % 60 === 0) console.log('[' + new Date().toLocaleTimeString() + '] Poll #' + pollCount + ' | Accs:' + accounts.length + ' Seen:' + seenIds.size + ' Checked:' + totalChecked);
 }
-
+ 
 var server = http.createServer(async function(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.writeHead(200); return res.end(); }
-
+ 
   var url = new URL(req.url, 'http://localhost:' + PORT);
   var p = url.pathname;
-
+ 
   function json(d) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(d));
   }
-
+ 
   try {
     if (p === '/accounts' && req.method === 'GET') {
       return json({ accounts: accounts });
     }
-
+ 
     if (p === '/accounts' && req.method === 'POST') {
       var u = (url.searchParams.get('username') || '').replace(/^@/, '');
       if (!u || u.length < 2) return json({ error: 'no username' });
@@ -199,7 +199,7 @@ var server = http.createServer(async function(req, res) {
         return json({ error: 'not_found' });
       }
     }
-
+ 
     if (p === '/accounts' && req.method === 'DELETE') {
       var u2 = (url.searchParams.get('username') || '').replace(/^@/, '');
       accounts = accounts.filter(function(a) { return a.username.toLowerCase() !== u2.toLowerCase(); });
@@ -207,17 +207,17 @@ var server = http.createServer(async function(req, res) {
       saveAll();
       return json({ ok: true });
     }
-
+ 
     if (p === '/transfers') {
       var tu = url.searchParams.get('username');
       if (tu) return json({ transfers: transfers[tu.toLowerCase()] || [] });
       return json({ transfers: transfers });
     }
-
+ 
     if (p === '/status') {
       return json({ accounts: accounts.length, gifts: GIFT_IDS.size, seen: seenIds.size, subs: notifyUsers.length, uptime: Math.floor(process.uptime() / 60), polls: pollCount });
     }
-
+ 
     if (p === '/api/proxy') {
       var apiPath = url.searchParams.get('path');
       if (!apiPath) return json({ error: 'no path' });
@@ -226,7 +226,7 @@ var server = http.createServer(async function(req, res) {
       var apiData = await seeApi(apiPath, params);
       return json(apiData);
     }
-
+ 
     res.writeHead(404);
     res.end('Not found');
   } catch (e) {
@@ -234,7 +234,7 @@ var server = http.createServer(async function(req, res) {
     res.end(JSON.stringify({ error: e.message }));
   }
 });
-
+ 
 server.listen(PORT, '0.0.0.0', function() {
   console.log('=============================');
   console.log('  🎁 Gift Tracker Server');
@@ -244,7 +244,7 @@ server.listen(PORT, '0.0.0.0', function() {
   console.log('Seen: ' + seenIds.size + ' | Subs: ' + notifyUsers.length);
   console.log('Polling every 5s...');
 });
-
+ 
 setInterval(function() {
   if (seenIds.size > 50000) {
     var arr = Array.from(seenIds);
@@ -253,7 +253,7 @@ setInterval(function() {
     console.log('Trimmed seenIds to 30K');
   }
 }, 60000);
-
+ 
 setInterval(poll, POLL_INTERVAL);
 setInterval(checkBot, 3000);
 poll();
